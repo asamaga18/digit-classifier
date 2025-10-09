@@ -35,4 +35,4 @@ model.fit(x_train, y_train, epochs = 5, verbose = 1)
 print("Test Data: ")
 model.evaluate(x_test, y_test, verbose = 2)
 
-model.save("model.h5")
+model.save("modelStorage/model.keras")
