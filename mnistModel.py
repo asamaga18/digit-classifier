@@ -30,9 +30,43 @@ model.compile(optimizer="adam",
 
 )
 
-model.fit(x_train, y_train, epochs = 5, verbose = 1)
+model.fit(x_train, y_train, epochs = 6, verbose = 1)
 
 print("Test Data: ")
 model.evaluate(x_test, y_test, verbose = 2)
 
-model.save("modelStorage/model.keras")
+model.save('./models/mnist_cnn.h5')
+
+
+
+
+
+
+
+
+
+# # Option 2: Actual CNN (Better Accuracy)
+# pythonmodel = tf.keras.models.Sequential([
+#     # Convolutional layers
+#     tf.keras.layers.Conv2D(32, (3, 3), activation='relu', input_shape=(28, 28, 1)),
+#     tf.keras.layers.MaxPooling2D((2, 2)),
+#     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+#     tf.keras.layers.MaxPooling2D((2, 2)),
+#     tf.keras.layers.Conv2D(64, (3, 3), activation='relu'),
+    
+#     # Flatten and dense layers
+#     tf.keras.layers.Flatten(),
+#     tf.keras.layers.Dense(64, activation='relu'),
+#     tf.keras.layers.Dropout(0.5),
+#     tf.keras.layers.Dense(10, activation='softmax')
+# ])
+
+# # Need to reshape data for CNN
+# x_train = x_train.reshape(-1, 28, 28, 1)
+# x_test = x_test.reshape(-1, 28, 28, 1)
+
+# model.compile(optimizer='adam',
+#               loss='sparse_categorical_crossentropy',
+#               metrics=['accuracy'])
+
+# model.fit(x_train, y_train, epochs=10, validation_split=0.1, verbose=1)
