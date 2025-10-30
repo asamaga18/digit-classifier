@@ -3,10 +3,425 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Neural Network App Test</title>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.21.0/dist/tf.min.js"></script>
+    <title>MNIST Digit Recognizer</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .canvas-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        #canvas {
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            cursor: crosshair;
+            touch-action: none;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 30px;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        #clearBtn {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        #clearBtn:hover {
+            background: #ee5a52;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+
+        #predictBtn {
+            background: #667eea;
+            color: white;
+        }
+
+        #predictBtn:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 8px rgba(0,0,0,0.15);
+        }
+
+        #predictBtn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .result {
+            text-align: center;
+            margin-top: 30px;
+            padding: 25px;
+            background: linear-gradient(135deg, #667eea15 0%, #764ba215 100%);
+            border-radius: 15px;
+            min-height: 100px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .prediction {
+            font-size: 3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .confidence {
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .loading {
+            text-align: center;
+            color: #666;
+            font-style: italic;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            font-size: 0.9em;
+        }
+
+        .status.loading {
+            background: #fff3cd;
+            color: #856404;
+        }
+
+        .status.ready {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .probabilities {
+            margin-top: 20px;
+            text-align: left;
+        }
+
+        .prob-item {
+            display: flex;
+            align-items: center;
+            margin: 8px 0;
+        }
+
+        .prob-label {
+            width: 30px;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .prob-bar-container {
+            flex: 1;
+            height: 20px;
+            background: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 0 10px;
+        }
+
+        .prob-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            transition: width 0.3s ease;
+        }
+
+        .prob-value {
+            width: 50px;
+            text-align: right;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
 </head>
 <body>
-    
+    <div class="container">
+        <h1>✍️ MNIST Digit Recognizer</h1>
+        <p class="subtitle">Draw a digit (0-9) and let AI recognize it!</p>
+        <p class = "subtitle">WARNING, this project uses a simple fully-connected network, not a Convolutional Neural Network,
+            so it may be a little inaccurate at times. Have fun!  </pclass></p>
+        
+        <div id="status" class="status loading">Loading model...</div>
+
+        <div class="canvas-container">
+            <canvas id="canvas" width="280" height="280"></canvas>
+            <div class="controls">
+                <button id="clearBtn">Clear</button>
+                <button id="predictBtn" disabled>Predict</button>
+            </div>
+        </div>
+
+        <div class="result" id="result">
+            <div class="loading">Draw a digit and click Predict!</div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const clearBtn = document.getElementById('clearBtn');
+        const predictBtn = document.getElementById('predictBtn');
+        const resultDiv = document.getElementById('result');
+        const statusDiv = document.getElementById('status');
+
+        let isDrawing = false;
+        let model = null;
+
+        // Initialize canvas
+        ctx.fillStyle = 'black';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 20;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+
+        // Load the model
+        async function loadModel() {
+            try {
+                statusDiv.textContent = 'Loading model...';
+                statusDiv.className = 'status loading';
+                
+                // IMPORTANT: Update this path to where your model files are hosted
+                // For local testing, you'll need to serve these files with a local server
+                model = await tf.loadLayersModel('./tfjs_model/model.json');
+                
+                statusDiv.textContent = '✓ Model loaded successfully!';
+                statusDiv.className = 'status ready';
+                predictBtn.disabled = false;
+                
+                console.log('Model loaded successfully');
+            } catch (error) {
+                console.error('Error loading model:', error);
+                statusDiv.textContent = '✗ Error loading model. Make sure model files are accessible.';
+                statusDiv.className = 'status error';
+            }
+        }
+
+        // Drawing functions
+        function startDrawing(e) {
+            isDrawing = true;
+            draw(e);
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = (e.clientX || e.touches[0].clientX) - rect.left;
+            const y = (e.clientY || e.touches[0].clientY) - rect.top;
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+        }
+
+        // Clear canvas
+        function clearCanvas() {
+            ctx.fillStyle = 'black';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            resultDiv.innerHTML = '<div class="loading">Draw a digit and click Predict!</div>';
+        }
+
+        // Preprocess canvas for model
+        function preprocessCanvas() {
+            // Create a temporary canvas for resizing
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = 28;
+            tempCanvas.height = 28;
+            const tempCtx = tempCanvas.getContext('2d');
+            
+            // Fill with black background
+            tempCtx.fillStyle = 'black';
+            tempCtx.fillRect(0, 0, 28, 28);
+            
+            // Draw and resize to 28x28
+            tempCtx.drawImage(canvas, 0, 0, 28, 28);
+            const resizedData = tempCtx.getImageData(0, 0, 28, 28);
+            
+            // Convert to grayscale array
+            const data = resizedData.data;
+            const grayscale = [];
+            
+            for (let i = 0; i < data.length; i += 4) {
+                // Average RGB values (they should all be the same for grayscale)
+                const gray = (data[i] + data[i + 1] + data[i + 2]) / 3;
+                grayscale.push(gray / 255.0); // Normalize to 0-1
+            }
+            
+            // Create tensor with shape [1, 28, 28] - NO channel dimension for Flatten layer
+            const tensor = tf.tensor3d(grayscale, [1, 28, 28]);
+            
+            return tensor;
+        }
+
+        // Make prediction
+        async function predict() {
+            if (!model) {
+                alert('Model not loaded yet!');
+                return;
+            }
+
+            try {
+                const tensor = preprocessCanvas();
+                
+                // Log tensor shape for debugging
+                console.log('Input tensor shape:', tensor.shape);
+                console.log('Model input shape:', model.inputs[0].shape);
+                
+                // Get raw prediction (logits)
+                const prediction = model.predict(tensor);
+                
+                // Apply softmax to convert logits to probabilities
+                const softmaxPrediction = tf.softmax(prediction);
+                const probabilities = await softmaxPrediction.data();
+                
+                console.log('Prediction output:', probabilities);
+                
+                // Get the predicted digit
+                const predictedDigit = softmaxPrediction.argMax(-1).dataSync()[0];
+                const confidence = (probabilities[predictedDigit] * 100).toFixed(2);
+
+                // Display result
+                displayResult(predictedDigit, confidence, probabilities);
+
+                // Cleanup
+                tensor.dispose();
+                prediction.dispose();
+                softmaxPrediction.dispose();
+            } catch (error) {
+                console.error('Prediction error:', error);
+                console.error('Error stack:', error.stack);
+                resultDiv.innerHTML = `<div class="loading" style="color: #ff6b6b;">Error making prediction: ${error.message}</div>`;
+            }
+        }
+
+        function displayResult(digit, confidence, probabilities) {
+            let html = `
+                <div class="prediction">Predicted: ${digit}</div>
+                <div class="confidence">Confidence: ${confidence}%</div>
+                <div class="probabilities">
+            `;
+
+            // Show top 3 predictions
+            const probs = Array.from(probabilities)
+                .map((p, i) => ({ digit: i, prob: p }))
+                .sort((a, b) => b.prob - a.prob)
+                .slice(0, 5);
+
+            probs.forEach(p => {
+                const percentage = (p.prob * 100).toFixed(1);
+                html += `
+                    <div class="prob-item">
+                        <div class="prob-label">${p.digit}:</div>
+                        <div class="prob-bar-container">
+                            <div class="prob-bar" style="width: ${percentage}%"></div>
+                        </div>
+                        <div class="prob-value">${percentage}%</div>
+                    </div>
+                `;
+            });
+
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+
+        // Event listeners
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch events for mobile
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            startDrawing(e);
+        });
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            draw(e);
+        });
+        canvas.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            stopDrawing();
+        });
+
+        clearBtn.addEventListener('click', clearCanvas);
+        predictBtn.addEventListener('click', predict);
+
+        // Load model on page load
+        loadModel();
+    </script>
 </body>
 </html>
